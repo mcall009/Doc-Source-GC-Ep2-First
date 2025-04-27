@@ -1,4 +1,4 @@
-# Grand Chase Season V EP2 - Documentação Técnica (Source First)
+# Grand Chase Season V EP2 - Documentação Técnica
 
 ## Sumário
 
@@ -12,27 +12,54 @@
    - [Arquivos do Cliente](#arquivos-do-cliente)
    - [Arquivos do Servidor](#arquivos-do-servidor)
    - [Arquivos Comuns](#arquivos-comuns)
-5. [Sistema de Jogador (Player)](#sistema-de-jogador-player)
+5. [Diagramas de Arquitetura](#diagramas-de-arquitetura)
+   - [Hierarquia de Classes](#hierarquia-de-classes)
+   - [Fluxo de Comunicação Cliente-Servidor](#fluxo-de-comunicação-cliente-servidor)
+   - [Máquina de Estados do Jogador](#máquina-de-estados-do-jogador) 
+6. [Algoritmos Críticos](#algoritmos-críticos)
+   - [Sistema de Colisão](#sistema-de-colisão)
+   - [Cálculo de Dano](#cálculo-de-dano)
+   - [Sistema de Animação](#sistema-de-animação)
+   - [Sincronização de Rede](#sincronização-de-rede)
+7. [Sistema de Jogador (Player)](#sistema-de-jogador-player)
    - [Atributos e Estados](#atributos-e-estados)
    - [Habilidades e Combos](#habilidades-e-combos)
    - [Sistema de Metamorfose](#sistema-de-metamorfose)
-6. [Sistema de Itens](#sistema-de-itens)
+8. [Sistema de Itens](#sistema-de-itens)
    - [Tipos de Itens](#tipos-de-itens)
    - [Gerenciamento de Inventário](#gerenciamento-de-inventário)
    - [Sistema de Equipamento](#sistema-de-equipamento)
    - [Customização (Coordi)](#customização-coordi)
-7. [Sistema de Combate](#sistema-de-combate)
+9. [Sistema de Combate](#sistema-de-combate)
    - [Dano e Colisão](#dano-e-colisão)
    - [Efeitos e Partículas](#efeitos-e-partículas)
-8. [Sistema de Redes](#sistema-de-redes)
-   - [Protocolos de Comunicação](#protocolos-de-comunicação)
-   - [Sincronização](#sincronização)
-9. [Sistema de Recursos](#sistema-de-recursos)
-   - [Carregamento de Recursos](#carregamento-de-recursos)
-   - [Gerenciamento de Memória](#gerenciamento-de-memória)
-10. [Sistema de Interface](#sistema-de-interface)
-11. [Sistema de Scripts (Lua)](#sistema-de-scripts-lua)
-12. [Pontos Fortes e Fracos](#pontos-fortes-e-fracos)
+10. [Sistema de Redes](#sistema-de-redes)
+    - [Protocolos de Comunicação](#protocolos-de-comunicação)
+    - [Sincronização](#sincronização)
+    - [Segurança e Anti-Cheating](#segurança-e-anti-cheating)
+11. [Sistema de Banco de Dados](#sistema-de-banco-de-dados)
+    - [Modelo de Dados](#modelo-de-dados)
+    - [Estratégias de Persistência](#estratégias-de-persistência)
+12. [Sistema de Recursos](#sistema-de-recursos)
+    - [Carregamento de Recursos](#carregamento-de-recursos)
+    - [Gerenciamento de Memória](#gerenciamento-de-memória)
+13. [Modos de Jogo](#modos-de-jogo)
+    - [PvP (Player vs Player)](#pvp-player-vs-player)
+    - [PvE (Player vs Environment)](#pve-player-vs-environment)
+    - [Eventos Especiais](#eventos-especiais)
+14. [Análise de Performance](#análise-de-performance)
+    - [Gargalos Conhecidos](#gargalos-conhecidos)
+    - [Estratégias de Otimização](#estratégias-de-otimização)
+15. [Configuração e Deployment](#configuração-e-deployment)
+    - [Processo de Build](#processo-de-build)
+    - [Configuração de Servidores](#configuração-de-servidores)
+16. [Sistema de Interface](#sistema-de-interface)
+17. [Sistema de Scripts (Lua)](#sistema-de-scripts-lua)
+18. [Fluxo de Dados do Jogo](#fluxo-de-dados-do-jogo)
+    - [Ciclo de Input até Renderização](#ciclo-de-input-até-renderização)
+    - [Comunicação Entre Componentes](#comunicação-entre-componentes)
+19. [Glossário Técnico](#glossário-técnico)
+20. [Pontos Fortes e Fracos](#pontos-fortes-e-fracos)
     - [Pontos Fortes](#pontos-fortes)
     - [Pontos Fracos](#pontos-fracos)
 
@@ -190,6 +217,178 @@ O código-fonte está organizado nos seguintes diretórios principais:
 
 - **KncException.h (2.9KB)**: Sistema de exceções personalizado.
 
+## Diagramas de Arquitetura
+
+### Hierarquia de Classes
+
+A seguir, apresentamos a hierarquia de classes principal do Grand Chase Season V EP2:
+
+```
+KGCObj (Base para objetos de jogo)
+├── PLAYER
+│   ├── Atributos (HP, MP, etc.)
+│   ├── Estados (PS_NORMAL, PS_HIT, PS_SKILL, etc.)
+│   └── Sistemas de Controle (Input, Animação, etc.)
+├── MONSTER
+│   ├── AI
+│   ├── Comportamentos
+│   └── Atributos
+└── OBJECT
+    ├── Objetos Interativos
+    ├── Plataformas
+    └── Obstáculos
+
+GCItemManager (Singleton)
+├── GCItem (Template de Item)
+├── KItem (Instância de Item)
+└── KInventoryItem (Item no Inventário)
+
+BaseServer
+├── GameServer
+├── CenterServer
+├── AgentServer
+├── MsgServer
+└── MatchServer
+```
+
+### Fluxo de Comunicação Cliente-Servidor
+
+Este diagrama mostra o fluxo de comunicação entre cliente e servidor durante uma ação típica de jogo:
+
+```
+Cliente                      Relay Servers              Game Server
+  |                               |                         |
+  |-- Entrada do Usuário --|      |                         |
+  |-- Validação Local -----|      |                         |
+  |-- Envio de Pacote -----|----->|-- Routing ------------>|
+  |                        |      |                         |-- Processamento da Ação --|
+  |                        |      |                         |-- Validação ---------------|
+  |                        |      |                         |-- Atualização de Estado --|
+  |<-- Confirmação/Correção|<-----|<------------------------|
+  |-- Atualização Visual --|      |                         |
+  |                        |      |                         |
+```
+
+### Máquina de Estados do Jogador
+
+A máquina de estados do jogador controla todas as transições de estados possíveis durante o gameplay:
+
+```
+                  +------------+
+                  |   PS_DEAD  |<-----------+
+                  +------------+            |
+                       ^                    |
+                       |                    |
+    +------------+     |    +------------+  |
+    | PS_NORMAL  |---->|--->|  PS_HIT    |--+
+    +------------+     |    +------------+
+          |            |         ^
+          v            |         |
+    +------------+     |    +------------+
+    |  PS_JUMP   |---->|--->|  PS_SKILL  |
+    +------------+          +------------+
+          |                      |
+          v                      v
+    +------------+          +------------+
+    |  PS_FALL   |--------->|  PS_COMBO  |
+    +------------+          +------------+
+```
+
+## Algoritmos Críticos
+
+### Sistema de Colisão
+
+O sistema de colisão no Grand Chase utiliza principalmente retângulos de colisão (`GCCollisionRect`) para determinar interações entre personagens, armas e objetos. O algoritmo básico segue o seguinte fluxo:
+
+1. Cada objeto de jogo mantém um ou mais retângulos de colisão.
+2. Para personagens, existem retângulos para o corpo e para armas/ataques.
+3. A cada frame, o sistema verifica interseções entre retângulos.
+4. Quando uma interseção é detectada, o sistema determina o tipo de colisão:
+   - Colisão de movimento (bloqueio de passagem)
+   - Colisão de ataque (dano)
+   - Colisão de item (coleta)
+   - Colisão de evento (trigger)
+
+O sistema otimiza as verificações de colisão através de:
+- Verificação apenas entre objetos próximos (spatial partitioning)
+- Priorização de colisões por importância
+- Verificações simplificadas para objetos distantes da câmera
+
+O código principal para detecção de colisão está implementado nos métodos `Attack_Player`, `Attack_Monster` e `Attack_Object` da classe `PLAYER`.
+
+### Cálculo de Dano
+
+O sistema de cálculo de dano é um dos mais complexos do jogo, envolvendo múltiplos fatores:
+
+1. **Fórmula Base**: Dano = (Ataque × Multiplicador) - (Defesa × Fator Defesa)
+
+2. **Fatores Adicionais**:
+   - Tipo de Ataque (Físico, Mágico, Elemental)
+   - Resistências e Fraquezas Elementais
+   - Chance de Crítico e Dano Crítico
+   - Buffs e Debuffs Ativos
+   - Skills e Efeitos Especiais
+   - Atributos de Equipamentos
+
+3. **Modificadores Situacionais**:
+   - Ataques pelas costas (multiplicador adicional)
+   - Ataques aéreos (modificador de dano)
+   - Contra-ataques (redução de dano)
+   - Bloqueio (redução percentual)
+
+O código principal para cálculo de dano está em `CalculationRealDamage` e métodos relacionados na classe `PLAYER`, com suporte do `DamageManager`.
+
+### Sistema de Animação
+
+O sistema de animação do Grand Chase utiliza uma combinação de animações baseadas em keyframes e blending para criar transições suaves:
+
+1. **Carregamento de Animações**:
+   - Animações são definidas como sequências de keyframes
+   - Cada keyframe contém informações de posição, rotação e escala
+   - Informações adicionais para eventos de animação (sons, efeitos, etc.)
+
+2. **Reprodução e Blend**:
+   - Cada personagem tem uma animação atual e possivelmente uma próxima
+   - Blending entre animações ocorre durante transições
+   - Fatores de peso controlam a influência de cada animação
+
+3. **Sincronização**:
+   - Eventos de animação são sincronizados com frames específicos
+   - Efeitos visuais e sons são disparados em frames-chave
+   - Retângulos de colisão de ataque são ativados em frames específicos
+
+4. **Animações Procedurais**:
+   - Para efeitos especiais e reações
+   - Blend com animações pré-definidas
+
+O sistema é implementado principalmente nas classes relacionadas ao `KGCAnimManager`.
+
+### Sincronização de Rede
+
+A sincronização de rede do Grand Chase implementa vários algoritmos para garantir uma experiência fluida mesmo com latência:
+
+1. **Client-Side Prediction**:
+   - O cliente prevê o resultado de ações locais
+   - Aplica mudanças imediatamente na visualização local
+   - Corrige discrepâncias quando recebe confirmação do servidor
+
+2. **Estado Delta e Compressão**:
+   - Apenas mudanças de estado são transmitidas (não o estado completo)
+   - Compressão de dados para reduzir largura de banda
+   - Priorização de informações críticas
+
+3. **Interpolação e Extrapolação**:
+   - Interpolação de posições entre atualizações de rede
+   - Extrapolação para prever movimento durante perdas de pacotes
+   - Smoothing para evitar movimentos abruptos
+
+4. **Reconciliação de Estado**:
+   - O servidor é a autoridade final sobre o estado do jogo
+   - O cliente ajusta seu estado local conforme necessário
+   - Técnicas especiais para esconder latência em ações críticas
+
+O sistema é implementado principalmente em `Packet.cpp`, `NetLayer.cpp` e classes relacionadas.
+
 ## Sistema de Jogador (Player)
 
 ### Atributos e Estados
@@ -213,7 +412,7 @@ A transição entre estados é controlada por uma máquina de estados implementa
 A classe PLAYER inclui métodos importantes como:
 - `Frame_Move()`: Atualiza o estado do jogador a cada frame.
 - `CommonKeyInput()`: Processa entrada do teclado.
-- `CheckSkillKey()`, `CheckItemKey()`: Verificam teclas específicas.
+- `CheckSkillKey()`, `CheckItemKey(): Verificam teclas específicas.
 - `Attack_Player()`, `Attack_Monster()`: Verificam colisões de ataques.
 - `Change_HP()`: Altera a vida do jogador após sofrer dano.
 - `Rebirth()`: Ressuscita o jogador após a morte.
@@ -429,6 +628,365 @@ Grand Chase utiliza Lua como linguagem de script para várias funcionalidades:
 A integração com Lua é gerenciada pela classe `KncLua`, que fornece bindings para as principais classes e funções do jogo, permitindo que scripts Lua chamem funções C++ e vice-versa.
 
 O arquivo `BaseServer.cpp` inclui um método `RegToLua()` que registra funções C++ para serem acessíveis em Lua. Classes como `PLAYER` e `GCItemManager` também possuem métodos semelhantes, como `RegisterLuabind()`.
+
+## Sistema de Banco de Dados
+
+### Modelo de Dados
+
+O Grand Chase Season V EP2 utiliza um sistema de banco de dados relacional para armazenar informações persistentes do jogo. O modelo de dados é composto por várias tabelas principais:
+
+- **Accounts**: Armazena informações de contas de usuários.
+  - ID, Username, Password (hash), Email, Registration Date, Last Login
+  - Permissões e status da conta
+
+- **Characters**: Personagens pertencentes a cada conta.
+  - CharID, AccountID, CharType, Level, EXP
+  - Posição nas slots do usuário
+  - Estatísticas básicas
+
+- **Items**: Itens pertencentes a personagens.
+  - ItemUID, CharID, ItemID, Durability, Enchantment Level
+  - Data de aquisição, data de expiração (para itens temporários)
+  - Atributos e soquetes
+
+- **Skills**: Habilidades aprendidas por personagens.
+  - CharID, SkillID, Skill Level
+  - Posição nas slots de habilidades
+
+- **Guild**: Informações sobre guildas.
+  - GuildID, Name, Master, Creation Date
+  - Níveis, recursos e membros
+
+- **Transactions**: Histórico de transações.
+  - TransactionID, AccountID, Item, Amount, Date
+  - Tipo de transação (Compra, Venda, Troca)
+
+A comunicação com o banco de dados ocorre através da classe `DBLayer`, que fornece uma interface de alto nível para operações CRUD (Create, Read, Update, Delete).
+
+### Estratégias de Persistência
+
+O servidor implementa várias estratégias para gerenciar a persistência de dados de forma eficiente:
+
+1. **Caching**:
+   - Dados frequentemente acessados são mantidos em cache na memória
+   - Hierarquia de cache com diferentes níveis de prioridade
+   - Invalidação de cache em cascata para manter consistência
+
+2. **Batch Processing**:
+   - Operações de escrita são agrupadas em lotes
+   - Atualizações periódicas reduzem carga no banco de dados
+   - Priorização de operações críticas
+
+3. **Transações**:
+   - Operações críticas são encapsuladas em transações
+   - Mecanismos de rollback para recuperação de falhas
+   - Locks para evitar condições de corrida
+
+4. **Sharding**:
+   - Particionamento de dados por região/servidor
+   - Balanceamento de carga entre servidores de banco de dados
+   - Replicação para redundância e disponibilidade
+
+A interface com o banco de dados é implementada principalmente em `Server/Common/DBLayer.cpp` e utiliza ODBC para comunicação com o sistema de banco de dados.
+
+## Modos de Jogo
+
+### PvP (Player vs Player)
+
+O sistema PvP do Grand Chase oferece várias modalidades de combate entre jogadores:
+
+1. **Arena**: Combate 1v1 ou em equipes em arenas específicas.
+   - Sistema de matchmaking baseado em ranking
+   - Diferentes mapas com mecânicas únicas
+   - Sistema de ELO para classificação
+
+2. **Tag Match**: Combate com múltiplos personagens por jogador.
+   - Cada jogador seleciona 3 personagens
+   - Possibilidade de alternar entre personagens durante o combate
+   - Estratégias de composição de equipe
+
+3. **Survival**: Modo de sobrevivência contra ondas crescentes de outros jogadores.
+   - Um jogador contra múltiplos adversários em sequência
+   - Regeneração parcial entre rodadas
+   - Recompensas crescentes por sobrevivência
+
+4. **Team Battle**: Batalhas em equipe com objetivos específicos.
+   - Controle de território
+   - Captura de bandeira
+   - Team deathmatch
+
+A implementação dos modos PvP utiliza principalmente `KGCGameModeInterface.cpp` e sistemas relacionados.
+
+### PvE (Player vs Environment)
+
+Os modos PvE oferecem desafios contra inimigos controlados pelo computador:
+
+1. **Dungeons**: Níveis lineares com foco em combate.
+   - Múltiplos estágios com dificuldade crescente
+   - Chefes no final de cada estágio
+   - Mecânicas específicas por dungeon
+   - Sistema de loot com itens exclusivos
+
+2. **Raids**: Dungeons especiais para grupos.
+   - Requerem coordenação entre jogadores
+   - Bosses com mecânicas complexas
+   - Recompensas de alto valor
+
+3. **Tower of Trials**: Torre com níveis de dificuldade crescente.
+   - Cada andar possui desafios únicos
+   - Sistema de pontuação baseado em performance
+   - Recompensas exclusivas por progresso
+
+4. **Monster Arenas**: Arenas especiais com inimigos controlados por IA.
+   - Simulação de combates PvP contra IA
+   - Treinamento para modos competitivos
+
+A implementação destes modos utiliza principalmente os sistemas de AI em `HardAI/` e configurações de nível em arquivos Lua.
+
+### Eventos Especiais
+
+O Grand Chase também suporta eventos limitados por tempo com mecânicas únicas:
+
+1. **Eventos Sazonais**: Associados a datas especiais.
+   - Natal, Ano Novo, Halloween, etc.
+   - Mapas exclusivos e cosméticos temáticos
+   - Inimigos e bosses especiais
+
+2. **Boss Rush**: Combates consecutivos contra bosses.
+   - Dificuldade crescente
+   - Tempo limitado entre bosses
+   - Tabela de líderes global
+
+3. **Custom Game Modes**: Modos customizados para eventos específicos.
+   - Regras modificadas
+   - Habilidades especiais
+   - Cenários únicos
+
+Os eventos são configurados principalmente via scripts Lua e tabelas de configuração específicas.
+
+## Análise de Performance
+
+### Gargalos Conhecidos
+
+A análise do código revela vários gargalos potenciais de performance:
+
+1. **Renderização**:
+   - Renderização excessiva de partículas em cenas complexas
+   - Overhead de skinning em personagens com muitas animações
+   - Operações de blend entre múltiplos efeitos visuais
+
+2. **Cálculo de Física**:
+   - Verificações de colisão em cenários com muitos objetos
+   - Cálculos de trajetória para projéteis e efeitos
+   - Simulação de física de roupas e cabelos
+
+3. **Memória**:
+   - Fragmentação devido a alocações frequentes e desalocações
+   - Carregamento de recursos não otimizado
+   - Cache misses em estruturas de dados grandes
+
+4. **Rede**:
+   - Latência em operações que requerem resposta do servidor
+   - Congestionamento em áreas com muitos jogadores
+   - Overhead de protocolo em comunicações frequentes
+
+5. **Lógica de Jogo**:
+   - Cálculos complexos de dano com múltiplos modificadores
+   - Processamento de IA em cenários com muitos inimigos
+   - Atualização de estado de buffs e debuffs
+
+### Estratégias de Otimização
+
+O código implementa várias estratégias para mitigar os gargalos de performance:
+
+1. **Otimizações de Renderização**:
+   - Level of Detail (LOD) para modelos distantes
+   - Culling de objetos fora da visão
+   - Batching de draw calls para objetos similares
+   - Pré-computação de iluminação onde possível
+
+2. **Otimizações de Física**:
+   - Broad-phase collision detection para reduzir pares de teste
+   - Simplificação de colisão para objetos distantes
+   - Reutilização de cálculos de trajetória
+
+3. **Gerenciamento de Memória**:
+   - Pools de objetos para alocações frequentes
+   - Streaming de recursos para minimizar picos de memória
+   - Pré-alocação de buffers para operações comuns
+
+4. **Otimizações de Rede**:
+   - Compressão de pacotes
+   - Priorização de atualizações críticas
+   - Técnicas de previsão para esconder latência
+
+5. **Lógica de Jogo**:
+   - Caching de resultados de cálculos complexos
+   - Distribuição de carga de AI entre frames
+   - Simplificação de regras para entidades distantes
+
+Essas estratégias são implementadas em vários componentes do código, com destaque para o sistema de renderização em `MyD3D.cpp` e gerenciamento de partículas em `Particle/`.
+
+## Configuração e Deployment
+
+### Processo de Build
+
+O processo de compilação do Grand Chase Season V EP2 envolve várias etapas:
+
+1. **Preparação do Ambiente**:
+   - Configuração do Visual Studio (recomendado: VS 2012-2017)
+   - Instalação de dependências (DirectX SDK, Boost, etc.)
+   - Configuração de variáveis de ambiente
+
+2. **Compilação do Cliente**:
+   - Compilação do projeto principal `MyGame.vcxproj`
+   - Compilação das bibliotecas dependentes
+   - Geração de arquivos de recursos
+
+3. **Compilação dos Servidores**:
+   - Compilação de cada servidor individualmente
+   - Geração de configurações específicas por servidor
+   - Verificação de compatibilidade entre componentes
+
+4. **Empacotamento**:
+   - Geração de arquivos de recurso comprimidos
+   - Inclusão de dados de configuração
+   - Preparação de instaladores
+
+5. **Pós-processamento**:
+   - Assinatura digital dos executáveis
+   - Verificação de integridade
+   - Geração de patches incrementais
+
+O processo é controlado principalmente pelos arquivos de projeto e scripts de build.
+
+### Configuração de Servidores
+
+A configuração dos servidores é crítica para o funcionamento correto do jogo:
+
+1. **Infraestrutura**:
+   - Requerimentos de hardware recomendados
+     - CPU: Quad-core 3.0GHz+ por servidor
+     - RAM: 8GB+ por servidor
+     - Rede: Conexões dedicadas de 100Mbps+
+   - Configuração de rede (firewall, roteamento, etc.)
+   - Balanceamento de carga entre servidores
+
+2. **Configuração de Software**:
+   - Sistema operacional: Windows Server 2008+
+   - Configuração de banco de dados
+   - Ajuste de parâmetros do sistema operacional
+   - Configuração de monitoramento e logs
+
+3. **Arquivos de Configuração**:
+   - Configurações de conexão entre servidores
+   - Parâmetros de balanceamento de jogo
+   - Configurações de capacidade e limites
+   - Definições de eventos e promoções
+
+4. **Manutenção**:
+   - Procedimentos de backup e restauração
+   - Rotinas de verificação de integridade
+   - Procedimentos de atualização
+   - Planos de contingência
+
+As configurações são gerenciadas através de arquivos INI e scripts Lua específicos para cada componente do servidor.
+
+## Fluxo de Dados do Jogo
+
+### Ciclo de Input até Renderização
+
+O fluxo de dados em um ciclo completo de gameplay segue o seguinte caminho:
+
+1. **Input do Usuário**:
+   - Captura de teclas e movimentos do mouse
+   - Tradução em comandos de jogo
+   - Validação preliminar local
+
+2. **Processamento Local**:
+   - Aplicação de comandos ao estado local
+   - Atualização preliminar de estado
+   - Preparação de pacotes para envio ao servidor
+
+3. **Comunicação com Servidor**:
+   - Envio de comandos via pacotes
+   - Recepção de confirmações e correções
+   - Sincronização de estado
+
+4. **Atualização de Estado**:
+   - Aplicação de mudanças confirmadas
+   - Correção de discrepâncias
+   - Atualização de estados de entidades
+
+5. **Lógica de Jogo**:
+   - Cálculo de física e colisões
+   - Processamento de IA
+   - Aplicação de regras de jogo
+
+6. **Preparação Visual**:
+   - Atualização de animações
+   - Geração de partículas e efeitos
+   - Cálculo de câmera e visibilidade
+
+7. **Renderização**:
+   - Geração de comandos de renderização
+   - Execução da pipeline gráfica
+   - Apresentação do frame final
+
+Este ciclo é executado continuamente, idealmente a 60 frames por segundo, com otimizações para manter a fluidez mesmo em condições adversas.
+
+### Comunicação Entre Componentes
+
+Os componentes do jogo se comunicam através de vários mecanismos:
+
+1. **Comunicação Intra-Cliente**:
+   - Sistema de eventos e mensagens
+   - Chamadas diretas de método
+   - Compartilhamento de estado via estruturas globais
+
+2. **Comunicação Cliente-Servidor**:
+   - Pacotes TCP para informações críticas
+   - Pacotes UDP para atualizações frequentes
+   - HTTP para operações assíncronas (loja, eventos)
+
+3. **Comunicação Inter-Servidor**:
+   - Protocolos específicos entre componentes
+   - Base de dados compartilhada
+   - Sistema de mensageria para eventos
+
+4. **Comunicação com Serviços Externos**:
+   - Autenticação com servidores de conta
+   - Verificação de pagamentos
+   - Integração com sistemas de comunidade
+
+Cada tipo de comunicação utiliza formatos de dados e protocolos otimizados para seu propósito específico.
+
+## Glossário Técnico
+
+### Termos Específicos do Grand Chase
+
+- **AP (Ability Point)**: Pontos utilizados para melhorar atributos do personagem.
+- **BP (Burning Point)**: Recurso especial utilizado para habilidades poderosas.
+- **Coordi**: Sistema de customização visual de personagens.
+- **Dungeon**: Nível PvE com múltiplos estágios e um boss final.
+- **EP**: Episode, designação para grandes atualizações de conteúdo.
+- **GP (Game Points)**: Moeda obtida jogando o jogo.
+- **Metamorphosis**: Sistema que permite transformação temporária de personagens.
+- **Season**: Designação para versões principais do jogo.
+- **Socket**: Espaço em equipamentos para inserção de pedras de melhoria.
+
+### Termos Técnicos
+
+- **Actor**: Entidade ativa no jogo que pode interagir com o ambiente.
+- **AOE (Area of Effect)**: Ataques ou habilidades que afetam uma área.
+- **Client-Side Prediction**: Técnica que prevê localmente o resultado de ações para esconder latência.
+- **Delta Compression**: Transmissão apenas das diferenças entre estados.
+- **FSM (Finite State Machine)**: Sistema que controla transições entre estados finitos.
+- **LOD (Level of Detail)**: Técnica que reduz complexidade de modelos distantes.
+- **Netcode**: Componentes de código responsáveis pela comunicação em rede.
+- **Procedural Generation**: Geração algorítmica de conteúdo.
+- **Skinning**: Processo de aplicar transformações de ossos a vértices de um modelo.
+- **Sprite Sheet**: Coleção de imagens em um único arquivo para animação 2D.
 
 ## Pontos Fortes e Fracos
 
