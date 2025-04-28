@@ -1,5 +1,7 @@
 # Grand Chase Season V EP2 - Documentação Técnica
 
+Feita 100% com auxilio de IA (Claude Sonnet 3.7 + Thinking)
+
 ## Sumário
 
 1. [Introdução](#introdução)
